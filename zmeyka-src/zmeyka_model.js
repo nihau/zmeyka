@@ -49,19 +49,11 @@ var GameObject = function(p, color) {
 //inherit from gameobject
 var Bonus = function(p) {
 	GameObject.apply(this, p, 'pink');
+
+	this.onPickup = new CustomEvent();	
 };
 
 Bonus.prototype = Object.create(GameObject.prototype);
-
-
-Bonus.onPickUp = function () {
-	score++;
-}
-
-Bonus.create = function(x, y) {
-	this.spawnAt(getRandomInt(board.height), getRandomInt(board.width));
-}
-
 
 var snake = (function() {
 	var result = {};
