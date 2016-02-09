@@ -30,5 +30,3 @@ function onKeyDown(keyEvent) {
 
 
 gameStart();
-
-interval(tick, 100, 9999);

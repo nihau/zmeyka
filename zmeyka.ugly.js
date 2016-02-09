@@ -166,62 +166,29 @@ var Notifyable = function() {
 		return value;
 	};
 };
-var GameObject = function(p, color) {
-	this.point = p instanceof Point ? p : new Point(0, 0);
+var GameObject = function(color) {
 	this.color = color + "" === color ? color : 'black';
 
 	this.onPickup = new CustomEvent();	
 };
 
-GameObject.prototype.consume = function() { this.onPickup.dispatchEvent(); }
+	GameObject.prototype.consume = function() { this.onPickup.dispatch(); };
 
 //inherit from gameobject
-var Bonus = function(p) {
-	GameObject.apply(this, [p, 'pink']);
+var Bonus = function() {
+	GameObject.call(this, 'pink');
 };
-
-
-var boardWidth = 15;
-var boardHeight = 15;
-var speed = 0.01;
-
-var board = (function(xCount, yCount){
-	var board = [];
-	var	result = {
-			height : yCount,
-			width : xCount
-		};
-
-	for (var i = 0; i < xCount; i++) {
-		board[i] = [];
-		for (var j = 0; j < yCount; j++) {
-			board[i][j]={};
-		}
-	}
-	
-	result.get = function (x, y){
-		if (!isInteger(x)) {
-			return undefined;
-		};
-		
-		if (!isInteger(y)) {
-			var i = x;
-			var x = Math.floor(i / xCount);
-			var y = i % xCount;
-	
-			return board[x][y]; 
-		}
-
-		return board[x][y];
-	}
-
-	result.clear = function () { }
-
-	return result;
-})(boardWidth, boardHeight);
 
 Bonus.prototype = Object.create(GameObject.prototype);
 
+var voidObject = new GameObject('white');
+voidObject.prototype = Object.create(GameObject.prototype);
+
+var snakeHead = new GameObject('green');
+snakeHead.prototype = Object.create(GameObject.prototype);
+
+var snakeTail = new GameObject('darkgreen');
+snakeHead.prototype = Object.create(GameObject.prototype);
 var snake = (function() {
 	var result = {};
 	var directions = ['left', 'up', 'right', 'down'];
@@ -230,6 +197,7 @@ var snake = (function() {
 
 	var move = function(deltaP) {
 		var newP = body.last().clone();
+		var oldP;
 
 		newP.x += deltaP.x;
 		newP.y += deltaP.y;
@@ -238,14 +206,17 @@ var snake = (function() {
 		 || newP.y < 0 || newP.y >= board.height) {
 			gameLose();
 		} else {
+			oldP = body.first();
 			body.shift();
 			body.push(newP);
 		}
+
+		return oldP;
 	};
 
 	var direction = 'right';
 
-	result.invalidateEvent = new CustomEvent();
+	result.moveEvent = new CustomEvent();
 
 	result.changeDirection = function(newDirection) {
 		if(Math.abs (directions.indexOf(newDirection) - directions.indexOf(direction)) === 2) {
@@ -279,9 +250,13 @@ var snake = (function() {
 				throw 'what the fuck is wrong with direction?';
 		}
 
-		move(deltaP);
+		oldP = move(deltaP);
 
-		this.invalidateEvent.dispatch(body);
+		this.moveEvent.dispatch({
+			newPoint: body.last(),
+			oldPoint: oldP,
+			body: body
+		});
 	};
 
 	result.reset = function() {
@@ -295,31 +270,101 @@ var snake = (function() {
 
 	return result; 
 })();
+var boardWidth = 15;
+var boardHeight = 15;
+
+var board = (function(xCount, yCount){
+	var board = [];
+	board.height = yCount;
+	board.width = xCount;
+
+	board.clear = function() {
+		for (var i = 0; i < xCount; i++) {
+			board[i] = [];
+			for (var j = 0; j < yCount; j++) {
+				board[i][j]= voidObject;
+			}
+		}
+	};
+
+	board.clear();
+
+	board.invalidateEvent = new CustomEvent();
+
+	board.getFreePoint = function() {
+		var x = y = 0;
+
+		do {
+			x = getRandomInt(this.width),
+			y = getRandomInt(this.height);
+
+		} while (board[x][y] !== voidObject)
+
+		return new Point(x, y);
+	};
+	
+	board.setObjectAtPoint = function(p, gameObject) {
+		this.setObjectAtXY(p.x, p.y, gameObject); 
+	};
+
+	board.spawnAtRandomFree = function(gameObject) {
+		var fP = this.getFreePoint();
+
+		board.setObjectAtPoint(fP, gameObject);
+	};
+
+	board.setObjectAtXY = function(x, y, gameObject) {
+		board[x][y].consume();
+
+		board[x][y] = gameObject;
+
+		this.invalidateEvent.dispatch({
+			x: x,
+			y: y,
+			gameObject: gameObject
+		});
+	};
+
+	return board;
+})(boardWidth, boardHeight);
+
+
+var speed = 0.01;
+var score = new Notifyable();
 
 var activeBonus = null;
 var newGameObject = new CustomEvent();
 
 function gameStart() {
+	score = 0;
 	board.clear();
 	snake.reset();
-};
+
+	interval(tick, (1 / speed), 9999);
+
+	interval(placeBonus, (50 / speed), 9999, true);
+}
+
+snake.moveEvent.subscribe(function(deltaArgs){
+	board.setObjectAtPoint(deltaArgs.oldPoint, voidObject);
+
+	for(var i=0; i<deltaArgs.body.length; i++) {
+		board.setObjectAtPoint(deltaArgs.body[i], snakeTail);
+	}
+
+	board.setObjectAtPoint(deltaArgs.newPoint, snakeHead);
+});
 
 function tick() {
 	snake.move();
+}
 
-	snake.invalidateEvent.subscribe(function (body) {
-		if (body.last().equalsTo(activeBonus)) {
-			activeBonus.consume();
-		}
-	});
+function placeBonus() {
+	var bonus = new Bonus();
+	board.spawnAtRandomFree(bonus);
 
-	if (activeBonus === null) {
-		activeBonus = new Bonus(new Point(getRandomInt(board.width), getRandomInt(board.height)));
-		newGameObject.dispatch(activeBonus);
-
-		activeBonus.onPickup.subscribe(function () { activeBonus = null; });
-	}
-};
+	bonus.onPickup.subscribe(function() { score.setValue(score.getValue()+1); }); 
+}
 
 document.body.onkeydown = onKeyDown;
 
@@ -353,9 +398,8 @@ function onKeyDown(keyEvent) {
 
 
 gameStart();
-
-interval(tick, 100, 9999);
 var canvas = document.getElementById('myCanvas'); 
+var score = document.getElementById('score');
 
 canvas.height = 300;
 canvas.width = 300;
@@ -403,24 +447,10 @@ var paintBlock = function(x, y, color){
 					 pixelHeight - d * 2);	
 };
 				
-snake.invalidateEvent.subscribe(function(body) {
-	for (var i = 0; i < wPixelsCount; i++) {
-		for (var j = 0; j < hPixelsCount; j++) {
-			paintBlock(i, j, 'white');
-		}
-	}
-
-	for (var i = 0; i < body.length - 1; i++) {
-		paintBlock(body[i].x, body[i].y, 'green');
-	}
-	
-	paintBlock(body[i].x, body[i].y, 'red');
+board.invalidateEvent.subscribe(function(o) {
+	paintBlock(o.x, o.y, o.gameObject.color);	
 });
 
-newGameObject.subscribe(function(gameObject) {
-	var point = gameObject.point;
-
-	paintBlock(point.x, point.y, gameObject.color);
-
-	gameObject.onPickup.subscribe(function() { paintBlock(point.x, point.y, 'white') });
+score.valueChanged.subscribe(function(deltaArgs) {
+	score.innerText = deltaArgs.newValue;
 });

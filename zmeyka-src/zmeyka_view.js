@@ -1,4 +1,5 @@
 var canvas = document.getElementById('myCanvas'); 
+var scoreParagraph = document.getElementById('score');
 
 canvas.height = 300;
 canvas.width = 300;
@@ -46,24 +47,10 @@ var paintBlock = function(x, y, color){
 					 pixelHeight - d * 2);	
 };
 				
-snake.invalidateEvent.subscribe(function(body) {
-	for (var i = 0; i < wPixelsCount; i++) {
-		for (var j = 0; j < hPixelsCount; j++) {
-			paintBlock(i, j, 'white');
-		}
-	}
-
-	for (var i = 0; i < body.length - 1; i++) {
-		paintBlock(body[i].x, body[i].y, 'green');
-	}
-	
-	paintBlock(body[i].x, body[i].y, 'red');
+board.invalidateEvent.subscribe(function(o) {
+	paintBlock(o.x, o.y, o.gameObject.color);	
 });
 
-newGameObject.subscribe(function(gameObject) {
-	var point = gameObject.point;
-
-	paintBlock(point.x, point.y, gameObject.color);
-
-	gameObject.onPickup.subscribe(function() { paintBlock(point.x, point.y, 'white') });
+score.valueChanged.subscribe(function(deltaArgs) {
+	scoreParagraph.innerText = deltaArgs.newValue;
 });
