@@ -399,7 +399,7 @@ function onKeyDown(keyEvent) {
 
 gameStart();
 var canvas = document.getElementById('myCanvas'); 
-var score = document.getElementById('score');
+var scoreParagraph = document.getElementById('score');
 
 canvas.height = 300;
 canvas.width = 300;
@@ -452,5 +452,5 @@ board.invalidateEvent.subscribe(function(o) {
 });
 
 score.valueChanged.subscribe(function(deltaArgs) {
-	score.innerText = deltaArgs.newValue;
+	scoreParagraph.innerText = deltaArgs.newValue;
 });
