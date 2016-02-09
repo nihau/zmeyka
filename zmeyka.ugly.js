@@ -111,24 +111,14 @@ function interval(func, delay, times, callInstantly) {
 
 	f();
 }
-var Point = {
-	create: function(x, y) {
-		var point = Object.create(this);
+var Point = function(x, y) {
+	this.x = x;
+	this.y = y;
+}
 
-		point.x = x;
-		point.y = y;
+Point.prototype.clone = function() { return new Point(this.x, this.y) }
 
-		return point;
-	},
-
-	clone: function() {
-		var point = Object.create(this);
-
-		point.x = this.x;
-		point.y = this.y;
-	}
-};
-
+Point.prototype.equalsTo = function(p) { return (this.x === p.x) && (this.y === p.y); }
 
 
 
@@ -159,23 +149,38 @@ c2.subscribe(function(){console.log('2')});
 
 
 c1.dispatch();
-var Notifyable = {
-	valueChanged: Object.create(customEvent),
+var Notifyable = function() {
+	this.valueChanged = new CustomEvent();
 
-	oldValue: undefined,
-	value: undefined,
+	this.oldValue  = undefined;
+	this.value = undefined;
 
-	setValue: function(value) { 
+	this.setValue = function(value) { 
 		this.oldValue = this.value;
 		this.value = value;
 
 		this.valueChanged.dispatch( { oldValue: this.oldValue, newValue : this.value } );
-	},
+	};
 
-	getValue: function() {
+	this.getValue = function() {
 		return value;
-	}
+	};
 };
+var GameObject = function(p, color) {
+	this.point = p instanceof Point ? p : new Point(0, 0);
+	this.color = color + "" === color ? color : 'black';
+
+	this.onPickup = new CustomEvent();	
+};
+
+GameObject.prototype.consume = function() { this.onPickup.dispatchEvent(); }
+
+//inherit from gameobject
+var Bonus = function(p) {
+	GameObject.apply(this, [p, 'pink']);
+};
+
+
 var boardWidth = 15;
 var boardHeight = 15;
 var speed = 0.01;
@@ -215,30 +220,7 @@ var board = (function(xCount, yCount){
 	return result;
 })(boardWidth, boardHeight);
 
-var GameObject = {
-	point: Point.create(0,0),
-	color: 'black',
-
-	onPickUp: function() {
-		console.log('not defined');
-	}
-};
-
-//inherit from gameobject
-var Bonus = Object.create(GameObject); 
-
-Bonus.spawnAt = function(x, y) {
-	this.point = Point.create(x, y);
-}
-
-Bonus.onPickUp = function () {
-	score++;
-}
-
-Bonus.create = function(x, y) {
-	this.spawnAt(getRandomInt(board.height), getRandomInt(board.width));
-}
-
+Bonus.prototype = Object.create(GameObject.prototype);
 
 var snake = (function() {
 	var result = {};
@@ -246,31 +228,24 @@ var snake = (function() {
 	var length = 3;
 	var body = [];
 
-	var moveX = function(deltaX) {
-		var newX = body.last().x + deltaX;
+	var move = function(deltaP) {
+		var newP = body.last().clone();
 
-		if ((newX < 0) || (newX >= board.width)) {
-			gameLose();
-		} else { 
-			body.shift();
-			body.push({ x : body.last().x + deltaX, y : body.last().y});
-		}
-	}
-	
-	var moveY = function(deltaY) {
-		var newY = body.last().y + deltaY;
+		newP.x += deltaP.x;
+		newP.y += deltaP.y;
 
-		if ((newY < 0) || (newY >= board.height)) {
+		if (newP.x < 0 || newP.x >= board.width
+		 || newP.y < 0 || newP.y >= board.height) {
 			gameLose();
-		} else { 
+		} else {
 			body.shift();
-			body.push({ x : body.last().x, y : body.last().y + deltaY});
+			body.push(newP);
 		}
-	}
+	};
 
 	var direction = 'right';
 
-	result.invalidateEvent = Object.create(customEvent);
+	result.invalidateEvent = new CustomEvent();
 
 	result.changeDirection = function(newDirection) {
 		if(Math.abs (directions.indexOf(newDirection) - directions.indexOf(direction)) === 2) {
@@ -285,30 +260,34 @@ var snake = (function() {
 	};
 	
 	result.move = function() {
+		var deltaP = new Point(0, 0);
+
 		switch (direction) {
 			case 'right':
-				moveX(1);
+				deltaP.x = 1;	
 				break;
 			case 'left':
-				moveX(-1);
+				deltaP.x = -1;	
 				break;
 			case 'up':
-				moveY(-1);
+				deltaP.y = -1;	
 				break;
 			case 'down':
-				moveY(1);
+				deltaP.y = 1;	
 				break;
 			default:
 				throw 'what the fuck is wrong with direction?';
 		}
 
-		this.invalidateEvent.dispatch({ body : body });
+		move(deltaP);
+
+		this.invalidateEvent.dispatch(body);
 	};
 
 	result.reset = function() {
 		
 		for (var i = 0; i < length; i++) {
-			body[i] = { x : i, y : 0 }
+			body[i] = new Point(i, 0);
 		}
 
 		this.direction = 'right';
@@ -317,6 +296,9 @@ var snake = (function() {
 	return result; 
 })();
 
+var activeBonus = null;
+var newGameObject = new CustomEvent();
+
 function gameStart() {
 	board.clear();
 	snake.reset();
@@ -324,6 +306,19 @@ function gameStart() {
 
 function tick() {
 	snake.move();
+
+	snake.invalidateEvent.subscribe(function (body) {
+		if (body.last().equalsTo(activeBonus)) {
+			activeBonus.consume();
+		}
+	});
+
+	if (activeBonus === null) {
+		activeBonus = new Bonus(new Point(getRandomInt(board.width), getRandomInt(board.height)));
+		newGameObject.dispatch(activeBonus);
+
+		activeBonus.onPickup.subscribe(function () { activeBonus = null; });
+	}
 };
 
 document.body.onkeydown = onKeyDown;
@@ -408,9 +403,7 @@ var paintBlock = function(x, y, color){
 					 pixelHeight - d * 2);	
 };
 				
-snake.invalidateEvent.subscribe(function(args) {
-	var body = args.body;
-
+snake.invalidateEvent.subscribe(function(body) {
 	for (var i = 0; i < wPixelsCount; i++) {
 		for (var j = 0; j < hPixelsCount; j++) {
 			paintBlock(i, j, 'white');
@@ -422,4 +415,12 @@ snake.invalidateEvent.subscribe(function(args) {
 	}
 	
 	paintBlock(body[i].x, body[i].y, 'red');
+});
+
+newGameObject.subscribe(function(gameObject) {
+	var point = gameObject.point;
+
+	paintBlock(point.x, point.y, gameObject.color);
+
+	gameObject.onPickup.subscribe(function() { paintBlock(point.x, point.y, 'white') });
 });

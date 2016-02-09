@@ -37,22 +37,6 @@ var board = (function(xCount, yCount){
 	return result;
 })(boardWidth, boardHeight);
 
-var GameObject = function(p, color) {
-	this.point = p instanceof Point ? p : new Point(0, 0);
-	this.color = color + "" === color ? color : 'black';
-
-	this.onPickUp = function() {
-		console.log('not defined');
-	}
-};
-
-//inherit from gameobject
-var Bonus = function(p) {
-	GameObject.apply(this, p, 'pink');
-
-	this.onPickup = new CustomEvent();	
-};
-
 Bonus.prototype = Object.create(GameObject.prototype);
 
 var snake = (function() {
@@ -61,31 +45,24 @@ var snake = (function() {
 	var length = 3;
 	var body = [];
 
-	var moveX = function(deltaX) {
-		var newX = body.last().x + deltaX;
+	var move = function(deltaP) {
+		var newP = body.last().clone();
 
-		if ((newX < 0) || (newX >= board.width)) {
-			gameLose();
-		} else { 
-			body.shift();
-			body.push({ x : body.last().x + deltaX, y : body.last().y});
-		}
-	}
-	
-	var moveY = function(deltaY) {
-		var newY = body.last().y + deltaY;
+		newP.x += deltaP.x;
+		newP.y += deltaP.y;
 
-		if ((newY < 0) || (newY >= board.height)) {
+		if (newP.x < 0 || newP.x >= board.width
+		 || newP.y < 0 || newP.y >= board.height) {
 			gameLose();
-		} else { 
+		} else {
 			body.shift();
-			body.push({ x : body.last().x, y : body.last().y + deltaY});
+			body.push(newP);
 		}
-	}
+	};
 
 	var direction = 'right';
 
-	result.invalidateEvent = Object.create(customEvent);
+	result.invalidateEvent = new CustomEvent();
 
 	result.changeDirection = function(newDirection) {
 		if(Math.abs (directions.indexOf(newDirection) - directions.indexOf(direction)) === 2) {
@@ -100,30 +77,34 @@ var snake = (function() {
 	};
 	
 	result.move = function() {
+		var deltaP = new Point(0, 0);
+
 		switch (direction) {
 			case 'right':
-				moveX(1);
+				deltaP.x = 1;	
 				break;
 			case 'left':
-				moveX(-1);
+				deltaP.x = -1;	
 				break;
 			case 'up':
-				moveY(-1);
+				deltaP.y = -1;	
 				break;
 			case 'down':
-				moveY(1);
+				deltaP.y = 1;	
 				break;
 			default:
 				throw 'what the fuck is wrong with direction?';
 		}
 
-		this.invalidateEvent.dispatch({ body : body });
+		move(deltaP);
+
+		this.invalidateEvent.dispatch(body);
 	};
 
 	result.reset = function() {
 		
 		for (var i = 0; i < length; i++) {
-			body[i] = { x : i, y : 0 }
+			body[i] = new Point(i, 0);
 		}
 
 		this.direction = 'right';
@@ -132,6 +113,9 @@ var snake = (function() {
 	return result; 
 })();
 
+var activeBonus = null;
+var newGameObject = new CustomEvent();
+
 function gameStart() {
 	board.clear();
 	snake.reset();
@@ -139,5 +123,18 @@ function gameStart() {
 
 function tick() {
 	snake.move();
+
+	snake.invalidateEvent.subscribe(function (body) {
+		if (body.last().equalsTo(activeBonus)) {
+			activeBonus.consume();
+		}
+	});
+
+	if (activeBonus === null) {
+		activeBonus = new Bonus(new Point(getRandomInt(board.width), getRandomInt(board.height)));
+		newGameObject.dispatch(activeBonus);
+
+		activeBonus.onPickup.subscribe(function () { activeBonus = null; });
+	}
 };
 

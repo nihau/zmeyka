@@ -1,21 +1,11 @@
-var Point = {
-	create: function(x, y) {
-		var point = Object.create(this);
+var Point = function(x, y) {
+	this.x = x;
+	this.y = y;
+}
 
-		point.x = x;
-		point.y = y;
+Point.prototype.clone = function() { return new Point(this.x, this.y) }
 
-		return point;
-	},
-
-	clone: function() {
-		var point = Object.create(this);
-
-		point.x = this.x;
-		point.y = this.y;
-	}
-};
-
+Point.prototype.equalsTo = function(p) { return (this.x === p.x) && (this.y === p.y); }
 
 
 

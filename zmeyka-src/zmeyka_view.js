@@ -46,9 +46,7 @@ var paintBlock = function(x, y, color){
 					 pixelHeight - d * 2);	
 };
 				
-snake.invalidateEvent.subscribe(function(args) {
-	var body = args.body;
-
+snake.invalidateEvent.subscribe(function(body) {
 	for (var i = 0; i < wPixelsCount; i++) {
 		for (var j = 0; j < hPixelsCount; j++) {
 			paintBlock(i, j, 'white');
@@ -60,4 +58,12 @@ snake.invalidateEvent.subscribe(function(args) {
 	}
 	
 	paintBlock(body[i].x, body[i].y, 'red');
+});
+
+newGameObject.subscribe(function(gameObject) {
+	var point = gameObject.point;
+
+	paintBlock(point.x, point.y, gameObject.color);
+
+	gameObject.onPickup.subscribe(function() { paintBlock(point.x, point.y, 'white') });
 });
