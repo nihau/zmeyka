@@ -149,11 +149,11 @@ c2.subscribe(function(){console.log('2')});
 
 
 c1.dispatch();
-var Notifyable = function() {
+var Notifyable = function(initialValue) {
 	this.valueChanged = new CustomEvent();
 
 	this.oldValue  = undefined;
-	this.value = undefined;
+	this.value = initialValue;
 
 	this.setValue = function(value) { 
 		this.oldValue = this.value;
@@ -163,7 +163,7 @@ var Notifyable = function() {
 	};
 
 	this.getValue = function() {
-		return value;
+		return this.value;
 	};
 };
 var GameObject = function(color) {
@@ -192,7 +192,6 @@ snakeHead.prototype = Object.create(GameObject.prototype);
 var snake = (function() {
 	var result = {};
 	var directions = ['left', 'up', 'right', 'down'];
-	var length = 3;
 	var body = [];
 
 	var move = function(deltaP) {
@@ -207,7 +206,10 @@ var snake = (function() {
 			gameLose();
 		} else {
 			oldP = body.first();
-			body.shift();
+
+			if (body.length === result.length)
+				body.shift();
+
 			body.push(newP);
 		}
 
@@ -217,6 +219,8 @@ var snake = (function() {
 	var direction = 'right';
 
 	result.moveEvent = new CustomEvent();
+
+	result.length = 3;
 
 	result.changeDirection = function(newDirection) {
 		if(Math.abs (directions.indexOf(newDirection) - directions.indexOf(direction)) === 2) {
@@ -260,7 +264,7 @@ var snake = (function() {
 	};
 
 	result.reset = function() {
-		
+		var length = this.length;
 		for (var i = 0; i < length; i++) {
 			body[i] = new Point(i, 0);
 		}
@@ -330,13 +334,13 @@ var board = (function(xCount, yCount){
 
 
 var speed = 0.01;
-var score = new Notifyable();
+var score;
 
 var activeBonus = null;
 var newGameObject = new CustomEvent();
 
 function gameStart() {
-	score = 0;
+	score = new Notifyable(0);
 	board.clear();
 	snake.reset();
 
@@ -363,7 +367,11 @@ function placeBonus() {
 	var bonus = new Bonus();
 	board.spawnAtRandomFree(bonus);
 
-	bonus.onPickup.subscribe(function() { score.setValue(score.getValue()+1); }); 
+	bonus.onPickup.subscribe(function() {
+	   	score.setValue(score.getValue()+1);
+		snake.length++;
+   	}); 
+
 }
 
 document.body.onkeydown = onKeyDown;

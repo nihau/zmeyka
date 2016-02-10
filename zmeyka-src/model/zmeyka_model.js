@@ -1,11 +1,11 @@
 var speed = 0.01;
-var score = new Notifyable();
+var score;
 
 var activeBonus = null;
 var newGameObject = new CustomEvent();
 
 function gameStart() {
-	score = 0;
+	score = new Notifyable(0);
 	board.clear();
 	snake.reset();
 
@@ -32,6 +32,10 @@ function placeBonus() {
 	var bonus = new Bonus();
 	board.spawnAtRandomFree(bonus);
 
-	bonus.onPickup.subscribe(function() { score.setValue(score.getValue()+1); }); 
+	bonus.onPickup.subscribe(function() {
+	   	score.setValue(score.getValue()+1);
+		snake.length++;
+   	}); 
+
 }
 

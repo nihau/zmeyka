@@ -1,7 +1,6 @@
 var snake = (function() {
 	var result = {};
 	var directions = ['left', 'up', 'right', 'down'];
-	var length = 3;
 	var body = [];
 
 	var move = function(deltaP) {
@@ -16,7 +15,10 @@ var snake = (function() {
 			gameLose();
 		} else {
 			oldP = body.first();
-			body.shift();
+
+			if (body.length === result.length)
+				body.shift();
+
 			body.push(newP);
 		}
 
@@ -26,6 +28,8 @@ var snake = (function() {
 	var direction = 'right';
 
 	result.moveEvent = new CustomEvent();
+
+	result.length = 3;
 
 	result.changeDirection = function(newDirection) {
 		if(Math.abs (directions.indexOf(newDirection) - directions.indexOf(direction)) === 2) {
@@ -69,7 +73,7 @@ var snake = (function() {
 	};
 
 	result.reset = function() {
-		
+		var length = this.length;
 		for (var i = 0; i < length; i++) {
 			body[i] = new Point(i, 0);
 		}

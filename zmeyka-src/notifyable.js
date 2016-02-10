@@ -1,8 +1,8 @@
-var Notifyable = function() {
+var Notifyable = function(initialValue) {
 	this.valueChanged = new CustomEvent();
 
 	this.oldValue  = undefined;
-	this.value = undefined;
+	this.value = initialValue;
 
 	this.setValue = function(value) { 
 		this.oldValue = this.value;
@@ -12,6 +12,6 @@ var Notifyable = function() {
 	};
 
 	this.getValue = function() {
-		return value;
+		return this.value;
 	};
 };
