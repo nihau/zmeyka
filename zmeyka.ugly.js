@@ -76,6 +76,24 @@ Array.prototype.last = function (item) {
 	this[this.length - 1] = item;
 }
 
+Array.prototype.remove = function (item) {
+	var index = this.indexOf(item);
+
+	if (index < 0) {
+		this.splice(index, 1);
+	}
+
+	return index;		
+}
+
+Array.prototype.removeAll = function (item) {
+	var index = -1; 
+
+	do {
+		index = this.remove(item);
+	} while (index >= 0)
+}
+
 function interval(func, delay, times, callInstantly) {
 	if (typeof(func) !== 'function') {
 		throw 'invalid function';
@@ -122,22 +140,36 @@ Point.prototype.equalsTo = function(p) { return (this.x === p.x) && (this.y === 
 
 
 
-var CustomEvent = function(){
+var CustomEvent = function(parentEvent){
 	var listeners = [];
+	var that = this;
 
-	return {
-		subscribe : function (listener) {
-			if (typeof(listener) !== 'function')
-				return;
-			listeners.push(listener);
-		},
+	this.subscribe = function (listener) {
+		if (typeof(listener) !== 'function')
+			return;
+		listeners.push(listener);
+	};
 
-		dispatch : function (_args) {
-			for (var i = 0; i < listeners.length; i++) {
-				listeners[i](_args);
-			}
+	this.unsubscribe = function (listener) {
+		if (typeof(listener) !== 'function')
+			return;
+
+		listeners.remove(listener);
+	};
+
+	this.clearSubscribers = function () {
+		listeners = [];
+	};
+
+	this.dispatch = function (_args) {
+		for (var i = 0; i < listeners.length; i++) {
+			listeners[i](_args);
 		}
 	};
+
+	if (parentEvent instanceof CustomEvent) {
+		parentEvent.subscribe(function(_args) { that.dispatch(_args); });
+	}
 };
 
 CustomEvent.create = function() { return new customEvent(); };
@@ -333,132 +365,162 @@ var board = (function(xCount, yCount){
 })(boardWidth, boardHeight);
 
 
-var speed = 0.01;
-var score;
+var Model = function () {
+	var speed = 0.001;
+	var score = new Notifyable(0);
 
-var activeBonus = null;
-var newGameObject = new CustomEvent();
+	this.newGameObject = new CustomEvent();
+	this.invalidateEvent = new CustomEvent(board.invalidateEvent);
+	this.scoreChanged = new CustomEvent(score.valueChanged);
 
-function gameStart() {
-	score = new Notifyable(0);
-	board.clear();
-	snake.reset();
+	var bonusTracker = {
+		lastBonus: undefined,
+		placeBonus: function() {
+			if (lastBonus === undefined) {
+				var bonus = new Bonus();
+				lastBonus = bonus;
+				board.spawnAtRandomFree(bonus);
 
-	interval(tick, (1 / speed), 9999);
+				bonus.onPickup.subscribe(function() {
+					score.setValue(score.getValue()+1);
+					snake.length++;
 
-	interval(placeBonus, (50 / speed), 9999, true);
-}
+					lastBonus = undefined;
+					bonus.onPickup.clearSubscribers();
+				});
+			}
+		}
+	};
 
-snake.moveEvent.subscribe(function(deltaArgs){
-	board.setObjectAtPoint(deltaArgs.oldPoint, voidObject);
 
-	for(var i=0; i<deltaArgs.body.length; i++) {
-		board.setObjectAtPoint(deltaArgs.body[i], snakeTail);
+	this.gameStart = function () {
+		score.setValue(0); 
+		board.clear();
+		snake.reset();
+
+		interval(tick, (1 / speed), 9999, true);
+
+		interval(bonusTracker.placeBonus, (50 / speed), 9999, true);
 	}
 
-	board.setObjectAtPoint(deltaArgs.newPoint, snakeHead);
-});
+	snake.moveEvent.subscribe(function(deltaArgs){
+		board.setObjectAtPoint(deltaArgs.oldPoint, voidObject);
 
-function tick() {
-	snake.move();
-}
+		for(var i=0; i<deltaArgs.body.length; i++) {
+			board.setObjectAtPoint(deltaArgs.body[i], snakeTail);
+		}
 
-function placeBonus() {
-	var bonus = new Bonus();
-	board.spawnAtRandomFree(bonus);
+		board.setObjectAtPoint(deltaArgs.newPoint, snakeHead);
+	});
 
-	bonus.onPickup.subscribe(function() {
-	   	score.setValue(score.getValue()+1);
-		snake.length++;
-   	}); 
-
-}
-
-document.body.onkeydown = onKeyDown;
-
-function onKeyDown(keyEvent) {
-	var keyPressed = keyEvent.keyCode | keyEvent.which;
-	var direction;
-	switch (keyPressed) {
-		//up
-		case 38:
-			direction = 'up';
-			break;
-		//right
-		case 39:
-			
-			direction = 'right';
-			break;
-		//left
-		case 37:
-			direction = 'left';
-			break;
-		//down
-		case 40:
-			direction = 'down';
-			break;
-		default:
-			console.log(keyPressed);
+	function tick() {
+		snake.move();
 	}
-	if (direction !== undefined)
-		snake.changeDirection(direction);
-}
-
-
-gameStart();
-var canvas = document.getElementById('myCanvas'); 
-var scoreParagraph = document.getElementById('score');
-
-canvas.height = 300;
-canvas.width = 300;
-
-var pixelWidth = canvas.width / boardWidth;
-var pixelHeight = canvas.height / boardHeight;
-
-var lineThickness = 1;
-	
-var ctx = canvas.getContext("2d");
-
-var wPixelsCount = canvas.height/pixelWidth;
-var hPixelsCount = canvas.height/pixelHeight;
-
-//drawGrid
-(function(){
-	ctx.beginPath();
-
-	for (var i = 0; i <= wPixelsCount; i++) {
-		ctx.moveTo(i * pixelWidth, 0);
-		ctx.lineTo(i * pixelWidth, canvas.height);
-	}	
-	
-	for (var j = 0; j <= hPixelsCount; j++) {
-		ctx.moveTo(0, j * pixelHeight);
-		ctx.lineTo(canvas.width, j * pixelHeight);		
-	}
-	
-	ctx.stroke();
-})();
-
-
-var paintBlock = function(x, y, color){
-	if (x >= wPixelsCount || x < 0
-	 || y >= hPixelsCount || y < 0)	
-		return;
-	
-	color = (color || 'white') + "";
-	var d = lineThickness;
-
-	ctx.fillStyle = colorNameToHex(color); 
-	ctx.fillRect(x * pixelWidth  + d,
-				 y * pixelHeight + d,
-				 	 pixelWidth  - d * 2,
-					 pixelHeight - d * 2);	
 };
-				
-board.invalidateEvent.subscribe(function(o) {
-	paintBlock(o.x, o.y, o.gameObject.color);	
-});
+var View = function(model) {
+	var canvas = document.getElementById('myCanvas'); 
+	var scoreParagraph = document.getElementById('score');
 
-score.valueChanged.subscribe(function(deltaArgs) {
-	scoreParagraph.innerText = deltaArgs.newValue;
-});
+	canvas.height = 300;
+	canvas.width = 300;
+
+	var pixelWidth = canvas.width / boardWidth;
+	var pixelHeight = canvas.height / boardHeight;
+
+	var lineThickness = 1;
+		
+	var ctx = canvas.getContext("2d");
+
+	var wPixelsCount = canvas.height/pixelWidth;
+	var hPixelsCount = canvas.height/pixelHeight;
+
+	//drawGrid
+	(function(){
+		ctx.beginPath();
+
+		for (var i = 0; i <= wPixelsCount; i++) {
+			ctx.moveTo(i * pixelWidth, 0);
+			ctx.lineTo(i * pixelWidth, canvas.height);
+		}	
+		
+		for (var j = 0; j <= hPixelsCount; j++) {
+			ctx.moveTo(0, j * pixelHeight);
+			ctx.lineTo(canvas.width, j * pixelHeight);		
+		}
+		
+		ctx.stroke();
+	})();
+
+
+	var paintBlock = function(x, y, color){
+		if (x >= wPixelsCount || x < 0
+		 || y >= hPixelsCount || y < 0)	
+			return;
+		
+		color = (color || 'white') + "";
+		var d = lineThickness;
+
+		ctx.fillStyle = colorNameToHex(color); 
+		ctx.fillRect(x * pixelWidth  + d,
+					 y * pixelHeight + d,
+						 pixelWidth  - d * 2,
+						 pixelHeight - d * 2);	
+	};
+					
+	model.invalidateEvent.subscribe(function(o) {
+		paintBlock(o.x, o.y, o.gameObject.color);	
+	});
+
+	model.scoreChanged.subscribe(function(deltaArgs) {
+		scoreParagraph.innerText = deltaArgs.newValue;
+	});
+};
+var Controller = function(model, view) {
+	document.body.onkeydown = onKeyDown;
+
+	function onKeyDown(keyEvent) {
+		var keyPressed = keyEvent.keyCode | keyEvent.which;
+		var direction;
+		switch (keyPressed) {
+			//up
+			case 38:
+				direction = 'up';
+				break;
+			//right
+			case 39:
+				
+				direction = 'right';
+				break;
+			//left
+			case 37:
+				direction = 'left';
+				break;
+			//down
+			case 40:
+				direction = 'down';
+				break;
+			default:
+				console.log(keyPressed);
+		}
+
+		if (direction !== undefined)
+			snake.changeDirection(direction);
+	}
+};
+var MVC = function(Model, View, Controller) {
+	if (   (typeof(Model)      !== 'function')
+		|| (typeof(View)       !== 'function')
+		|| (typeof(Controller) !== 'function'))
+		return;
+
+	this.model = new Model();
+	this.view = new View(this.model);
+	this.controller = new Controller(this.model, this.view);
+};
+
+var mvc = new MVC(Model, View, Controller);
+
+mvc.model.gameStart();
+
+
+

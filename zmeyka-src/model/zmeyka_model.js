@@ -1,41 +1,52 @@
-var speed = 0.01;
-var score;
+var Model = function () {
+	var speed = 0.001;
+	var score = new Notifyable(0);
 
-var activeBonus = null;
-var newGameObject = new CustomEvent();
+	this.newGameObject = new CustomEvent();
+	this.invalidateEvent = new CustomEvent(board.invalidateEvent);
+	this.scoreChanged = new CustomEvent(score.valueChanged);
 
-function gameStart() {
-	score = new Notifyable(0);
-	board.clear();
-	snake.reset();
+	var bonusTracker = {
+		lastBonus: undefined,
+		placeBonus: function() {
+			if (lastBonus === undefined) {
+				var bonus = new Bonus();
+				lastBonus = bonus;
+				board.spawnAtRandomFree(bonus);
 
-	interval(tick, (1 / speed), 9999);
+				bonus.onPickup.subscribe(function() {
+					score.setValue(score.getValue()+1);
+					snake.length++;
 
-	interval(placeBonus, (50 / speed), 9999, true);
-}
+					lastBonus = undefined;
+					bonus.onPickup.clearSubscribers();
+				});
+			}
+		}
+	};
 
-snake.moveEvent.subscribe(function(deltaArgs){
-	board.setObjectAtPoint(deltaArgs.oldPoint, voidObject);
 
-	for(var i=0; i<deltaArgs.body.length; i++) {
-		board.setObjectAtPoint(deltaArgs.body[i], snakeTail);
+	this.gameStart = function () {
+		score.setValue(0); 
+		board.clear();
+		snake.reset();
+
+		interval(tick, (1 / speed), 9999, true);
+
+		interval(bonusTracker.placeBonus, (50 / speed), 9999, true);
 	}
 
-	board.setObjectAtPoint(deltaArgs.newPoint, snakeHead);
-});
+	snake.moveEvent.subscribe(function(deltaArgs){
+		board.setObjectAtPoint(deltaArgs.oldPoint, voidObject);
 
-function tick() {
-	snake.move();
-}
+		for(var i=0; i<deltaArgs.body.length; i++) {
+			board.setObjectAtPoint(deltaArgs.body[i], snakeTail);
+		}
 
-function placeBonus() {
-	var bonus = new Bonus();
-	board.spawnAtRandomFree(bonus);
+		board.setObjectAtPoint(deltaArgs.newPoint, snakeHead);
+	});
 
-	bonus.onPickup.subscribe(function() {
-	   	score.setValue(score.getValue()+1);
-		snake.length++;
-   	}); 
-
-}
-
+	function tick() {
+		snake.move();
+	}
+};

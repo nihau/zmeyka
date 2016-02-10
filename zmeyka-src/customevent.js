@@ -1,19 +1,33 @@
-var CustomEvent = function(){
+var CustomEvent = function(parentEvent){
 	var listeners = [];
+	var that = this;
 
-	return {
-		subscribe : function (listener) {
-			if (typeof(listener) !== 'function')
-				return;
-			listeners.push(listener);
-		},
+	this.subscribe = function (listener) {
+		if (typeof(listener) !== 'function')
+			return;
+		listeners.push(listener);
+	};
 
-		dispatch : function (_args) {
-			for (var i = 0; i < listeners.length; i++) {
-				listeners[i](_args);
-			}
+	this.unsubscribe = function (listener) {
+		if (typeof(listener) !== 'function')
+			return;
+
+		listeners.remove(listener);
+	};
+
+	this.clearSubscribers = function () {
+		listeners = [];
+	};
+
+	this.dispatch = function (_args) {
+		for (var i = 0; i < listeners.length; i++) {
+			listeners[i](_args);
 		}
 	};
+
+	if (parentEvent instanceof CustomEvent) {
+		parentEvent.subscribe(function(_args) { that.dispatch(_args); });
+	}
 };
 
 CustomEvent.create = function() { return new customEvent(); };

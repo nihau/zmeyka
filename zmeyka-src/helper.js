@@ -26,6 +26,24 @@ Array.prototype.last = function (item) {
 	this[this.length - 1] = item;
 }
 
+Array.prototype.remove = function (item) {
+	var index = this.indexOf(item);
+
+	if (index < 0) {
+		this.splice(index, 1);
+	}
+
+	return index;		
+}
+
+Array.prototype.removeAll = function (item) {
+	var index = -1; 
+
+	do {
+		index = this.remove(item);
+	} while (index >= 0)
+}
+
 function interval(func, delay, times, callInstantly) {
 	if (typeof(func) !== 'function') {
 		throw 'invalid function';
