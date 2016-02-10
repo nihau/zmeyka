@@ -1,14 +1,16 @@
 var Model = function () {
-	var speed = 0.001;
+	var speed = 0.01;
 	var score = new Notifyable(0);
 
 	this.newGameObject = new CustomEvent();
 	this.invalidateEvent = new CustomEvent(board.invalidateEvent);
 	this.scoreChanged = new CustomEvent(score.valueChanged);
 
-	var bonusTracker = {
-		lastBonus: undefined,
-		placeBonus: function() {
+	var bonusTracker = (function() {
+		var lastBonus = undefined;
+
+		var res = {};
+		res.placeBonus = function() {
 			if (lastBonus === undefined) {
 				var bonus = new Bonus();
 				lastBonus = bonus;
@@ -23,7 +25,9 @@ var Model = function () {
 				});
 			}
 		}
-	};
+
+		return res;
+	})();
 
 
 	this.gameStart = function () {
@@ -33,17 +37,25 @@ var Model = function () {
 
 		interval(tick, (1 / speed), 9999, true);
 
-		interval(bonusTracker.placeBonus, (50 / speed), 9999, true);
+		interval(bonusTracker.placeBonus, (1 / speed), 9999, true);
 	}
 
 	snake.moveEvent.subscribe(function(deltaArgs){
 		board.setObjectAtPoint(deltaArgs.oldPoint, voidObject);
 
-		for(var i=0; i<deltaArgs.body.length; i++) {
+		for(var i=0; i<deltaArgs.body.length - 1; i++) {
 			board.setObjectAtPoint(deltaArgs.body[i], snakeTail);
 		}
 
-		board.setObjectAtPoint(deltaArgs.newPoint, snakeHead);
+		var nP = deltaArgs.newPoint;
+
+		board[nP.x][nP.y].consume();
+
+		board.setObjectAtPoint(nP, snakeHead);
+	});
+
+	snakeTail.onPickup.subscribe(function() {
+		gameLose();
 	});
 
 	function tick() {

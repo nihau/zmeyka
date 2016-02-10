@@ -8,7 +8,7 @@ var GameObject = function(color) {
 
 //inherit from gameobject
 var Bonus = function() {
-	GameObject.call(this, 'pink');
+	GameObject.call(this, 'blue');
 };
 
 Bonus.prototype = Object.create(GameObject.prototype);
@@ -19,5 +19,5 @@ voidObject.prototype = Object.create(GameObject.prototype);
 var snakeHead = new GameObject('green');
 snakeHead.prototype = Object.create(GameObject.prototype);
 
-var snakeTail = new GameObject('darkgreen');
+var snakeTail = new GameObject('red');
 snakeHead.prototype = Object.create(GameObject.prototype);

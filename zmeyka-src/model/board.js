@@ -42,8 +42,6 @@ var board = (function(xCount, yCount){
 	};
 
 	board.setObjectAtXY = function(x, y, gameObject) {
-		board[x][y].consume();
-
 		board[x][y] = gameObject;
 
 		this.invalidateEvent.dispatch({
