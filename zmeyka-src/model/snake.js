@@ -6,6 +6,7 @@ var snake = (function() {
 	var move = function(deltaP) {
 		var newP = body.last().clone();
 		var oldP;
+		moveInitialDirection = direction;
 
 		newP.x += deltaP.x;
 		newP.y += deltaP.y;
@@ -26,13 +27,15 @@ var snake = (function() {
 	};
 
 	var direction = 'right';
+	var moveInitialDirection = direction;
+	
 
 	result.moveEvent = new CustomEvent();
 
 	result.length = 3;
 
 	result.changeDirection = function(newDirection) {
-		if(Math.abs (directions.indexOf(newDirection) - directions.indexOf(direction)) === 2) {
+		if(Math.abs (directions.indexOf(newDirection) - directions.indexOf(moveInitialDirection)) === 2) {
 			console.log('invalid move');
 	
 			return;

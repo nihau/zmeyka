@@ -52,6 +52,7 @@ function isInteger(n) {
 	return n === +n && n === (n | 0);
 }
 
+
 Array.prototype.contains = function(item) {
 	return this.indexOf(item) !== -1 
 }
@@ -94,7 +95,10 @@ Array.prototype.removeAll = function (item) {
 	} while (index >= 0)
 }
 
-function interval(func, delay, times, callInstantly) {
+Array.prototype.clear = function() {
+	this.Length = 0;
+}
+var Interval = function (func, delay, times, callInstantly) {
 	if (typeof(func) !== 'function') {
 		throw 'invalid function';
 	}
@@ -112,6 +116,7 @@ function interval(func, delay, times, callInstantly) {
 	}
 
 	var timesCalled = 0;
+	var lastLoop;
 
 	var f = function() {
 		if (timesCalled === 0 && callInstantly === true) {
@@ -122,12 +127,16 @@ function interval(func, delay, times, callInstantly) {
 		if (timesCalled < times) {
 			timesCalled++;
 
-			setTimeout(function () { func(); f(); }, delay);
+			lastLoop = setTimeout(function () { func(); f(); }, delay);
 
 		}
 	}
 
 	f();
+
+	this.stop = function() {
+		clearTimeout(lastLoop);
+	}
 }
 var Point = function(x, y) {
 	this.x = x;
@@ -229,6 +238,7 @@ var snake = (function() {
 	var move = function(deltaP) {
 		var newP = body.last().clone();
 		var oldP;
+		moveInitialDirection = direction;
 
 		newP.x += deltaP.x;
 		newP.y += deltaP.y;
@@ -249,13 +259,15 @@ var snake = (function() {
 	};
 
 	var direction = 'right';
+	var moveInitialDirection = direction;
+	
 
 	result.moveEvent = new CustomEvent();
 
 	result.length = 3;
 
 	result.changeDirection = function(newDirection) {
-		if(Math.abs (directions.indexOf(newDirection) - directions.indexOf(direction)) === 2) {
+		if(Math.abs (directions.indexOf(newDirection) - directions.indexOf(moveInitialDirection)) === 2) {
 			console.log('invalid move');
 	
 			return;
@@ -394,15 +406,34 @@ var Model = function () {
 		return res;
 	})();
 
+	var handles = [];
+
+	var gameStateEnum = {
+		started: 'START',
+		stopped: 'STOP',
+		paused: 'PAUSE',
+	};
+
+	var gameState = gameStateEnum.stopped;
 
 	this.gameStart = function () {
 		score.setValue(0); 
 		board.clear();
 		snake.reset();
 
-		interval(tick, (1 / speed), 9999, true);
+		handles.push(new Interval(tick, (1 / speed), 9999, true));
 
-		interval(bonusTracker.placeBonus, (1 / speed), 9999, true);
+		handles.push(new Interval(bonusTracker.placeBonus, (1 / speed), 9999, true));
+	}
+
+	this.gameStop = function() {
+		handles.forEach(function(x) { x.stop() });
+		handles.clear();
+	}	
+
+	this.gameRestart = function() {
+		gameStop();
+		gameStart();
 	}
 
 	snake.moveEvent.subscribe(function(deltaArgs){
@@ -532,5 +563,6 @@ var mvc = new MVC(Model, View, Controller);
 
 mvc.model.gameStart();
 
+//setTimeout(mvc.model.gameStop, 4000);
 
 

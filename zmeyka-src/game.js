@@ -13,5 +13,6 @@ var mvc = new MVC(Model, View, Controller);
 
 mvc.model.gameStart();
 
+//setTimeout(mvc.model.gameStop, 4000);
 
 

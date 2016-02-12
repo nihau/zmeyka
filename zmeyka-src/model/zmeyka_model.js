@@ -29,15 +29,34 @@ var Model = function () {
 		return res;
 	})();
 
+	var handles = [];
+
+	var gameStateEnum = {
+		started: 'START',
+		stopped: 'STOP',
+		paused: 'PAUSE',
+	};
+
+	var gameState = gameStateEnum.stopped;
 
 	this.gameStart = function () {
 		score.setValue(0); 
 		board.clear();
 		snake.reset();
 
-		interval(tick, (1 / speed), 9999, true);
+		handles.push(new Interval(tick, (1 / speed), 9999, true));
 
-		interval(bonusTracker.placeBonus, (1 / speed), 9999, true);
+		handles.push(new Interval(bonusTracker.placeBonus, (1 / speed), 9999, true));
+	}
+
+	this.gameStop = function() {
+		handles.forEach(function(x) { x.stop() });
+		handles.clear();
+	}	
+
+	this.gameRestart = function() {
+		gameStop();
+		gameStart();
 	}
 
 	snake.moveEvent.subscribe(function(deltaArgs){
