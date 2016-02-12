@@ -1,5 +1,5 @@
-var boardWidth = 15;
-var boardHeight = 15;
+var boardWidth = 25;
+var boardHeight = 25;
 
 var board = (function(xCount, yCount){
 	var board = [];

@@ -5,6 +5,9 @@ var Controller = function(model, view) {
 		var keyPressed = keyEvent.keyCode | keyEvent.which;
 		var direction;
 		switch (keyPressed) {
+			//enter
+			case 13:
+				model.gameStart();
 			//up
 			case 38:
 				direction = 'up';
